@@ -19,7 +19,9 @@ public class ServeurCentral {
             System.setProperty("java.rmi.server.hostname", args[0]);
         }
 
+
         Registry registry = LocateRegistry.createRegistry(Constantes.PORT_RMI);
+
 
         Map<String, Appareil> appareils = new TreeMap<>();
         appareils.put("Climatiseur",  new AppareilImpl("Climatiseur", "ALLUME", "ETEINT"));
@@ -35,13 +37,31 @@ public class ServeurCentral {
         MoteurRegles moteur = new MoteurRegles(appareils);
         registry.rebind(Constantes.NOM_SERVICE, new MaisonServiceImpl(mesures, moteur));
 
+
         chargerReglesParDefaut(moteur);
+
+
+        BrokerJms broker = new BrokerJms();
+        PublieurEvenements publieur = new PublieurEvenements();
+        try {
+            broker.demarrer();
+            publieur.demarrer();
+            Journal.setPublieur(publieur);
+        } catch (Exception e) {
+
+            System.err.println("JMS indisponible, le serveur continue sans : " + e);
+        }
+
 
         RecepteurUDP recepteur = new RecepteurUDP(mesures, moteur);
         Thread t = new Thread(recepteur, "recepteur-udp");
         t.start();
 
-        Runtime.getRuntime().addShutdownHook(new Thread(recepteur::arreter));
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            recepteur.arreter();
+            publieur.arreter();
+            broker.arreter();
+        }));
         Journal.ajouter("Serveur pret. Registry RMI sur le port " + Constantes.PORT_RMI
                 + " - " + appareils.size() + " appareils publies.");
     }
@@ -49,10 +69,13 @@ public class ServeurCentral {
     private static void chargerReglesParDefaut(MoteurRegles m) {
         m.ajouter(new Regle(Constantes.TEMPERATURE, ">", 30, "Climatiseur", true));
         m.ajouter(new Regle(Constantes.TEMPERATURE, "<", 27, "Climatiseur", false));
+
         m.ajouter(new Regle(Constantes.PLUIE, ">", 20, "Fenetre", true));
         m.ajouter(new Regle(Constantes.PLUIE, "<", 5, "Fenetre", false));
+
         m.ajouter(new Regle(Constantes.LUMIERE, "<", 200, "Lampe", true));
         m.ajouter(new Regle(Constantes.LUMIERE, ">", 400, "Lampe", false));
+
         m.ajouter(new Regle(Constantes.HUMIDITE, ">", 70, "Ventilateur", true));
         m.ajouter(new Regle(Constantes.HUMIDITE, "<", 55, "Ventilateur", false));
     }

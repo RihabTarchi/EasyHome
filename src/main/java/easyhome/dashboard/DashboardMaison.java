@@ -49,6 +49,8 @@ public class DashboardMaison extends JFrame {
     private final JTable tableMesures = new JTable(modeleMesures);
     private final JTable tableRegles = new JTable(modeleRegles);
     private final JTextArea zoneJournal = new JTextArea();
+    private final JTextArea zoneEvenements = new JTextArea();   // evenements recus par JMS
+    private volatile AbonneEvenements abonne;
     private final JCheckBox caseAuto = new JCheckBox("Mode automatique", true);
     private final JLabel etat = new JLabel("Connexion...");
     private final JPanel panneauAppareils = new JPanel(new GridLayout(0, 1, 6, 6));
@@ -71,6 +73,7 @@ public class DashboardMaison extends JFrame {
         super("EasyHome - Tableau de bord");
         this.hote = hote;
         construireInterface();
+        connecterJms();
         pool.scheduleWithFixedDelay(this::rafraichir, 0, 1, TimeUnit.SECONDS);
     }
 
@@ -129,6 +132,9 @@ public class DashboardMaison extends JFrame {
         zoneJournal.setEditable(false);
         zoneJournal.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
         onglets.addTab("Journal", new JScrollPane(zoneJournal));
+        zoneEvenements.setEditable(false);
+        zoneEvenements.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        onglets.addTab("Evenements en direct (JMS)", new JScrollPane(zoneEvenements));
         onglets.setPreferredSize(new Dimension(0, 250));
         add(onglets, BorderLayout.SOUTH);
     }
@@ -201,7 +207,7 @@ public class DashboardMaison extends JFrame {
         try {
             champSeuil.commitEdit();
         } catch (java.text.ParseException ex) {
-            // on garde la derniere valeur valide
+
         }
         return new Regle((String) choixCapteur.getSelectedItem(),
                 (String) choixOperateur.getSelectedItem(),
@@ -218,7 +224,6 @@ public class DashboardMaison extends JFrame {
         choixAction.setSelectedItem(r.isAllumer() ? "ALLUMER" : "ETEINDRE");
     }
 
-    /** Cree un bouton ON/OFF par appareil trouve dans le Registry. */
     private void construireBoutonsAppareils() {
         panneauAppareils.removeAll();
         boutons.clear();
@@ -348,6 +353,25 @@ public class DashboardMaison extends JFrame {
         } finally {
             majEnCours = false;
         }
+    }
+
+    private void connecterJms() {
+        pool.execute(() -> {
+            try {
+                AbonneEvenements a = new AbonneEvenements(texte -> SwingUtilities.invokeLater(() -> {
+                    zoneEvenements.append(texte + "\n");
+                    zoneEvenements.setCaretPosition(zoneEvenements.getDocument().getLength());
+                }));
+                a.demarrer();
+                abonne = a;
+                SwingUtilities.invokeLater(() ->
+                        zoneEvenements.append("[JMS] abonne au Topic " + Constantes.NOM_TOPIC + "\n"));
+            } catch (Exception e) {
+                SwingUtilities.invokeLater(() ->
+                        zoneEvenements.append("[JMS] broker injoignable, nouvel essai dans 5 s...\n"));
+                pool.schedule(this::connecterJms, 5, TimeUnit.SECONDS);
+            }
+        });
     }
 
     private void erreur(Exception e) {

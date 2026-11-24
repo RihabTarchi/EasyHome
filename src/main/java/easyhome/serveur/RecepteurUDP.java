@@ -12,7 +12,7 @@ import java.util.Map;
 
 public class RecepteurUDP implements Runnable {
 
-    private final Map<String, Mesure> mesures;     // ConcurrentHashMap partagee
+    private final Map<String, Mesure> mesures;
     private final MoteurRegles moteur;
     private volatile boolean actif = true;
     private DatagramSocket socket;

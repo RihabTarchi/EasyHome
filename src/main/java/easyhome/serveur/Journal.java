@@ -21,10 +21,19 @@ public final class Journal {
         while (lignes.size() > MAX_LIGNES) {
             lignes.removeFirst();
         }
+        PublieurEvenements p = publieur;
+        if (p != null) {
+            p.publier(ligne);   // diffusion JMS de l'evenement
+        }
     }
 
     public static synchronized List<String> dernieres(int n) {
         int debut = Math.max(0, lignes.size() - n);
         return new ArrayList<>(lignes.subList(debut, lignes.size()));
+    }
+    private static volatile PublieurEvenements publieur;
+
+    public static void setPublieur(PublieurEvenements p) {
+        publieur = p;
     }
 }

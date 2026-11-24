@@ -14,6 +14,10 @@ public final class Constantes {
 
     public static final long TIMEOUT_HORS_LIGNE_MS = 10_000;
 
+    // --- JMS ---
+    public static final String URL_BROKER = "tcp://localhost:61616";
+    public static final String NOM_TOPIC = "easyhome.evenements";
+
 
     public static final String LUMIERE = "LUMIERE";
     public static final String TEMPERATURE = "TEMPERATURE";
