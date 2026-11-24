@@ -48,6 +48,12 @@ public class DashboardMaison extends JFrame {
             };
     private final JTable tableMesures = new JTable(modeleMesures);
     private final JTable tableRegles = new JTable(modeleRegles);
+    private final DefaultTableModel modeleMeteo =
+            new DefaultTableModel(new String[]{"Mesure", "Valeur", "Statut"}, 0) {
+                private static final long serialVersionUID = 1L;
+                @Override public boolean isCellEditable(int r, int c) { return false; }
+            };
+    private final JTable tableMeteo = new JTable(modeleMeteo);
     private final JTextArea zoneJournal = new JTextArea();
     private final JTextArea zoneEvenements = new JTextArea();   // evenements recus par JMS
     private volatile AbonneEvenements abonne;
@@ -107,14 +113,24 @@ public class DashboardMaison extends JFrame {
             @Override
             public Component getTableCellRendererComponent(JTable t, Object v, boolean sel, boolean foc, int r, int c) {
                 Component comp = super.getTableCellRendererComponent(t, v, sel, foc, r, c);
-                boolean horsLigne = "HORS LIGNE".equals(t.getValueAt(r, 3));
-                comp.setForeground(horsLigne ? Color.GRAY : Color.BLACK);
+                boolean horsLigne = "HORS LIGNE".equals(t.getValueAt(r, t.getColumnCount() - 1));                comp.setForeground(horsLigne ? Color.GRAY : Color.BLACK);
                 return comp;
             }
         });
-        JPanel gauche = new JPanel(new BorderLayout());
-        gauche.setBorder(BorderFactory.createTitledBorder("Capteurs (reception UDP)"));
-        gauche.add(new JScrollPane(tableMesures), BorderLayout.CENTER);
+        JPanel capteurs = new JPanel(new BorderLayout());
+        capteurs.setBorder(BorderFactory.createTitledBorder("Capteurs de la maison (reception UDP)"));
+        capteurs.add(new JScrollPane(tableMesures), BorderLayout.CENTER);
+
+        // Cadre de la meteo exterieure (donnees de l'API Open-Meteo, recues en UDP avec le lieu "exterieur")
+        tableMeteo.setRowHeight(22);
+        tableMeteo.setDefaultRenderer(Object.class, tableMesures.getDefaultRenderer(Object.class));
+        JPanel meteo = new JPanel(new BorderLayout());
+        meteo.setBorder(BorderFactory.createTitledBorder("Meteo exterieure (API Open-Meteo)"));
+        meteo.add(new JScrollPane(tableMeteo), BorderLayout.CENTER);
+
+        JPanel gauche = new JPanel(new GridLayout(2, 1, 0, 8));
+        gauche.add(capteurs);
+        gauche.add(meteo);
 
         panneauAppareils.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
         JPanel droiteAppareils = new JPanel(new BorderLayout());
@@ -312,11 +328,15 @@ public class DashboardMaison extends JFrame {
             caseAuto.setSelected(auto);
 
             modeleMesures.setRowCount(0);
+            modeleMeteo.setRowCount(0);
             for (Mesure m : mesures) {
-                modeleMesures.addRow(new Object[]{
-                        m.getType(), m.getLieu(),
-                        String.format(Locale.US, "%.1f %s", m.getValeur(), Constantes.unite(m.getType())),
-                        m.isHorsLigne() ? "HORS LIGNE" : "en ligne"});
+                String valeur = String.format(Locale.US, "%.1f %s", m.getValeur(), Constantes.unite(m.getType()));
+                String statut = m.isHorsLigne() ? "HORS LIGNE" : "en ligne";
+                if (Constantes.LIEU_EXTERIEUR.equals(m.getLieu())) {
+                    modeleMeteo.addRow(new Object[]{libelleMeteo(m.getType()), valeur, statut});
+                } else {
+                    modeleMesures.addRow(new Object[]{m.getType(), m.getLieu(), valeur, statut});
+                }
             }
 
             String signature = regles.toString();
@@ -372,6 +392,16 @@ public class DashboardMaison extends JFrame {
                 pool.schedule(this::connecterJms, 5, TimeUnit.SECONDS);
             }
         });
+    }
+    private static String libelleMeteo(String type) {
+        switch (type) {
+            case Constantes.TEMPERATURE:   return "Temperature";
+            case Constantes.HUMIDITE:      return "Humidite";
+            case Constantes.NUAGES:        return "Nuages";
+            case Constantes.VENT:          return "Vent";
+            case Constantes.PRECIPITATION: return "Precipitation";
+            default:                       return type;
+        }
     }
 
     private void erreur(Exception e) {

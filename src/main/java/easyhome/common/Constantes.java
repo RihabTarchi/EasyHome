@@ -14,6 +14,11 @@ public final class Constantes {
 
     public static final long TIMEOUT_HORS_LIGNE_MS = 10_000;
 
+    public static final String LIEU_EXTERIEUR = "exterieur";
+    public static final String NUAGES = "NUAGES";
+    public static final String VENT = "VENT";
+    public static final String PRECIPITATION = "PRECIPITATION";
+
     // --- JMS ---
     public static final String URL_BROKER = "tcp://localhost:61616";
     public static final String NOM_TOPIC = "easyhome.evenements";
@@ -32,6 +37,9 @@ public final class Constantes {
             case TEMPERATURE: return "\u00B0C";
             case HUMIDITE:    return "%";
             case PLUIE:       return "%";
+            case NUAGES:        return "%";
+            case VENT:          return "km/h";
+            case PRECIPITATION: return "mm";
             default:          return "";
         }
     }

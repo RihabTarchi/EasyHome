@@ -3,6 +3,7 @@ package easyhome.serveur;
 import easyhome.common.Appareil;
 import easyhome.common.Mesure;
 import easyhome.common.Regle;
+import easyhome.common.Constantes;
 
 import java.rmi.RemoteException;
 import java.util.ArrayList;
@@ -22,6 +23,9 @@ public class MoteurRegles {
 
     public void evaluer(Mesure m) {
         if (!modeAuto) {
+            return;
+        }
+        if (Constantes.LIEU_EXTERIEUR.equals(m.getLieu())) {
             return;
         }
         for (Regle r : regles) {
